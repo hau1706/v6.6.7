@@ -1,0 +1,118 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Use macOS 15 Intel to avoid the reported macOS ARM64 hosted-runner capacity issue.
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify available Xcode and iOS SDK
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Install tools
+        run: |
+          brew install xcodegen ldid
+          xcodegen --version
+
+      - name: Verify source files
+        run: |
+          test -f Sources/Info.plist || (echo "❌ Info.plist MISSING" && exit 1)
+          for f in main AppDelegate TestViewController FridaController APFPrefs APFFilter APFMenu; do
+            test -f "Sources/$f.m" || (echo "❌ $f.m MISSING" && exit 1)
+          done
+          echo "✅ Files OK"
+
+      - name: Clean old project
+        run: |
+          rm -rf FridaTest.xcodeproj build
+
+      - name: Download frida-core devkit
+        env:
+          FRIDA_VER: "16.7.19"
+        run: |
+          mkdir -p frida-core
+          URL="https://github.com/frida/frida/releases/download/${FRIDA_VER}/frida-core-devkit-${FRIDA_VER}-ios-arm64.tar.xz"
+          if ! curl -L -f -o /tmp/frida.tar.xz "$URL"; then
+            curl -L -f -o /tmp/frida.tar.xz \
+              "https://github.com/frida/frida/releases/download/16.5.9/frida-core-devkit-16.5.9-ios-arm64.tar.xz"
+          fi
+          tar xf /tmp/frida.tar.xz -C frida-core
+          test -f frida-core/libfrida-core.a || exit 1
+
+      - name: Bundle & Validate JS Syntax
+        run: |
+          tr -d '\r' < frida-agent.js > Sources/frida-agent-bundle.js
+          cmp -s frida-agent.js Sources/frida-agent-bundle.js
+          node --check Sources/frida-agent-bundle.js
+          node tests/assignment-flow.test.js
+          node tests/refresh-lifecycle.test.js
+          node tests/rebase-integrity.test.js
+          node tests/logging-api-signature.test.js
+          node tests/v667-safety-verbose.test.js
+          cc -O1 -Wall -o /tmp/gunzip_test tests/native/gunzip_logic_test.c -lz && /tmp/gunzip_test
+          echo "✅ JS syntax and assignment regression tests passed"
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate
+          PBX="FridaTest.xcodeproj/project.pbxproj"
+          sed -i '' -E 's/objectVersion = [0-9]+;/objectVersion = 60;/g' "$PBX"
+
+      - name: Build app
+        run: |
+          xcodebuild \
+            -project FridaTest.xcodeproj \
+            -scheme FridaTestApp \
+            -configuration Release \
+            -sdk iphoneos \
+            -arch arm64 \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            clean build
+
+      - name: Verify .app bundle
+        run: |
+          APP="build/Build/Products/Release-iphoneos/FridaTestApp.app"
+          test -f "$APP/Info.plist" || exit 1
+          test -f "$APP/frida-agent-bundle.js" || exit 1
+          echo "✅ Bundle Verified"
+
+      - name: Package + Sign IPA
+        run: |
+          APP="build/Build/Products/Release-iphoneos/FridaTestApp.app"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          ldid -Sentitlements.plist Payload/FridaTestApp.app/FridaTestApp
+          zip -qr AutoPick-Pro-v6.6.7.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPick-Pro-v6.6.7-ipa
+          path: AutoPick-Pro-v6.6.7.ipa
+          retention-days: 30
+
+      - name: Package source ZIP
+        run: |
+          zip -qr AutoPick-Pro-v6.6.7-source.zip . -x "./.git/*" "./build/*" "./Payload/*" "./FridaTest.ipa" "./AutoPick-Pro-v6.6.7.ipa" "./AutoPick-Pro-v6.6.7-source.zip" "./frida-core/*" "./FridaTest.xcodeproj/*"
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPick-Pro-v6.6.7-source
+          path: AutoPick-Pro-v6.6.7-source.zip
+          retention-days: 30

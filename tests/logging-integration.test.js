@@ -1,0 +1,26 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const agent = fs.readFileSync('frida-agent.js', 'utf8');
+const bundle = fs.readFileSync('Sources/frida-agent-bundle.js', 'utf8');
+const controller = fs.readFileSync('Sources/FridaController.m', 'utf8');
+const project = fs.readFileSync('project.yml', 'utf8');
+const prefs = fs.readFileSync('Sources/APFPrefs.m', 'utf8');
+assert.match(bundle, /function logEvent\(level, code, message, context\)/, 'bundled agent must expose structured logging');
+assert.match(bundle, /function sendLog\(msg\)/, 'bundled agent must retain legacy sendLog call sites');
+assert.match(agent, /function logEvent\(level, code, message, context\)/);
+assert.match(agent, /catch \(e\) \{\s*\/\/ Diagnostics are best-effort/);
+assert.match(fs.readFileSync('Sources/TestViewController.m', 'utf8'), /__APFLOG__/);
+assert.match(fs.readFileSync('Sources/TestViewController.m', 'utf8'), /handleAgentMessage:/);
+assert.match(project, /Sources\/APFLogManager\.m/);
+assert.match(project, /Sources\/APFLogManager\.h/);
+assert.match(prefs, /_loggingEnabled = YES/);
+console.log('logging-integration.test.js: PASS');
+
+assert.match(agent, /pick_batch_summary/);
+assert.match(agent, /PICK\.ITEM\./);
+assert.match(agent, /FILTER\.MATCH_SELECTED/);
+assert.match(agent, /ASSIGNMENT\.DETECTED/);
+assert.match(controller, /FRIDA\.SPAWN\.SUCCESS/);
+assert.match(controller, /FRIDA\.ATTACH\.SUCCESS/);
+assert.match(fs.readFileSync('Sources/TestViewController.m', 'utf8'), /showBatchPickSummary/);

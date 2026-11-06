@@ -1,0 +1,27 @@
+#!/usr/bin/env node
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const src = fs.readFileSync(path.join(__dirname, '..', 'Sources', 'APFMenu.m'), 'utf8');
+const matchStart = src.indexOf('+ (void)notifyMatch:');
+const batchStart = src.indexOf('+ (void)showBatchPickSummary:');
+const batchEnd = src.indexOf('+ (void)notifySuccessDetail:', batchStart);
+assert.ok(batchStart >= 0 && batchEnd > batchStart, 'batch summary method exists');
+const batch = src.slice(batchStart, batchEnd);
+assert.match(batch, /PICK LẺ ALL/);
+assert.match(batch, /📦 %ld đơn\s+\|\s+✅ %ld\s+❌ %ld/, 'resolved response summary shows success and failure counts');
+assert.match(batch, /responseDetails/, 'server response code and reason are included in the summary');
+assert.match(batch, /Server: %@/, 'notification displays backend reason');
+assert.match(batch, /forceNotify \|\| prefs\.systemNotify/, 'manual Assignment pick can display the summary even when general notifications are disabled');
+assert.match(batch, /forceNotify \|\| prefs\.notifyOnSuccess \|\| prefs\.notifyOnMatch/, 'manual Assignment pick always displays active-app result toast');
+assert.match(batch, /\[self toast:/, 'active-app summary uses compact toast, not a tall alert');
+assert.doesNotMatch(batch, /alertControllerWithTitle/, 'no verbose modal summary alert');
+assert.doesNotMatch(batch, /substringToIndex:217/, 'no late truncation of oversized notification body');
+assert.match(batch, /@"items":itemResults/, 'per-order details remain in structured logs');
+assert.match(src, /showPickResult:\(NSDictionary \*\)result success:\(BOOL\)success/, 'assignment single-pick result shows response reason and code');
+assert.match(batch, /responseDetails/, 'the batch notification includes the full response details');
+assert.match(batch, /Server: %@/, 'the notification shows the backend reason and response code');
+assert.match(src, /showSkippedAssignmentHistoryFromOffset:/, 'skipped Assignment history supports pagination');
+assert.match(src, /Assignment cũ hơn →/, 'older skipped Assignments can be reached from later history pages');
+console.log('PASS batch-notification-ui: compact system notification/toast; detailed per-order data retained in logs');

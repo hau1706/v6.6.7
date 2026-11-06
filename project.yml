@@ -1,0 +1,98 @@
+name: FridaTest
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: "14.0"
+  createIntermediateGroups: true
+  objectVersion: 60
+  xcodeVersion: "15.4"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    ENABLE_BITCODE: "NO"
+    ARCHS: "arm64"
+    VALID_ARCHS: "arm64"
+    IPHONEOS_DEPLOYMENT_TARGET: "14.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    SWIFT_VERSION: "5.0"
+    CLANG_ENABLE_OBJC_ARC: "YES"
+    CLANG_ENABLE_MODULES: "YES"
+    GENERATE_INFOPLIST_FILE: "NO"
+    INFOPLIST_EXPAND_BUILD_SETTINGS: "YES"
+    INFOPLIST_OUTPUT_FORMAT: "binary"
+
+targets:
+  FridaTestApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "14.0"
+
+    sources:
+      - path: Sources/main.m
+      - path: Sources/AppDelegate.m
+      - path: Sources/TestViewController.m
+      - path: Sources/FridaController.m
+      - path: Sources/APFPrefs.m
+      - path: Sources/APFFilter.m
+      - path: Sources/APFMenu.m
+      - path: Sources/APFLogManager.m
+      - path: Sources/APFLogViewerController.m
+      # Headers
+      - path: Sources/AppDelegate.h
+      - path: Sources/TestViewController.h
+      - path: Sources/FridaController.h
+      - path: Sources/APFPrefs.h
+      - path: Sources/APFFilter.h
+      - path: Sources/APFMenu.h
+      - path: Sources/APFLogManager.h
+      - path: Sources/APFLogViewerController.h
+      - path: Sources/Assets.xcassets
+      # Resources — CHỈ js bundle
+      - path: Sources/frida-agent-bundle.js
+        buildPhase: resources
+        optional: true
+
+    settings:
+      base:
+        INFOPLIST_FILE: Sources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.fridatestapp
+        PRODUCT_NAME: FridaTestApp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CREATE_INFOPLIST_SECTION_IN_BINARY: "NO"
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/frida-core"
+          - "$(SRCROOT)/Sources"
+        LIBRARY_SEARCH_PATHS:
+          - "$(SRCROOT)/frida-core"
+        OTHER_LDFLAGS:
+          - "-lfrida-core"
+          - "-lz"
+          - "-lresolv"
+          - "-framework"
+          - "Foundation"
+          - "-framework"
+          - "UIKit"
+          - "-framework"
+          - "Security"
+          - "-framework"
+          - "CFNetwork"
+          - "-framework"
+          - "CoreFoundation"
+          - "-framework"
+          - "SystemConfiguration"
+          - "-framework"
+          - "AVFoundation"
+          - "-framework"
+          - "AudioToolbox"
+          - "-framework"
+          - "UserNotifications"
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - "GLIB_STATIC_COMPILATION=1"
+          - "GOBJECT_STATIC_COMPILATION=1"
+        OTHER_CFLAGS:
+          - "-Wno-documentation"
+          - "-Wno-documentation-unknown-command"
+          - "-Wno-incompatible-pointer-types"
+          - "-Wno-nullability-completeness"
+          - "-Wno-implicit-function-declaration"
